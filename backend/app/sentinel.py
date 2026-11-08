@@ -44,14 +44,15 @@ async def trigger_t20_sentinel_alert(
     clean_route = next((r for r in comp.routes if r.route_id == comp.cleanest_route_id), comp.routes[0])
     highway_route = comp.routes[0]
 
-    title = f"SaansAI Alert (T-20 Min): {scheduled_departure} Departure"
+    now_time = time.strftime("%H:%M:%S")
+    title = f"SaansAI Alert (T-20 Min) • {now_time}"
     message = (
         f"Spine/Highway corridor PM2.5 is {highway_route.avg_pm25} µg/m³. "
         f"Switch to '{clean_route.name}' to cut inhaled toxic burden by {comp.exposure_reduction_pct}% "
         f"(+{comp.time_penalty_minutes} min)."
     )
 
-    # Dispatch to ntfy.sh with interactive Action Button
+    # Dispatch to ntfy.sh with interactive Action Button and Urgent Priority
     push_success = False
     ntfy_url = f"https://ntfy.sh/{ntfy_topic}"
     try:
@@ -61,7 +62,7 @@ async def trigger_t20_sentinel_alert(
                 content=message.encode("utf-8"),
                 headers={
                     "Title": title,
-                    "Priority": "high",
+                    "Priority": "urgent",  # Level 5: forces heads-up banner & vibration every time
                     "Tags": "warning,wind_face,mask",
                     # Interactive action button displayed directly inside phone notification:
                     "Actions": f"view, 🌿 Switch to Clean Route, https://ntfy.sh/{ntfy_topic}"
