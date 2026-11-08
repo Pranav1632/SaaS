@@ -51,18 +51,20 @@ async def trigger_t20_sentinel_alert(
         f"(+{comp.time_penalty_minutes} min)."
     )
 
-    # Dispatch to ntfy.sh for genuine OS push notification
+    # Dispatch to ntfy.sh with interactive Action Button
     push_success = False
     ntfy_url = f"https://ntfy.sh/{ntfy_topic}"
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             resp = await client.post(
                 ntfy_url,
                 content=message.encode("utf-8"),
                 headers={
                     "Title": title,
                     "Priority": "high",
-                    "Tags": "warning,wind_face,mask"
+                    "Tags": "warning,wind_face,mask",
+                    # Interactive action button displayed directly inside phone notification:
+                    "Actions": f"view, 🌿 Switch to Clean Route, https://ntfy.sh/{ntfy_topic}"
                 }
             )
             if resp.status_code == 200:
