@@ -8,6 +8,7 @@ const BACKEND_URL = "http://localhost:8000";
 export default function MapScreen() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const markersLayerRef = useRef<any>(null);
 
   const [stations, setStations] = useState<any[]>([]);
   const [traffic, setTraffic] = useState<any[]>([]);
@@ -34,15 +35,20 @@ export default function MapScreen() {
     fetchLayers();
   }, []);
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet Map safely
   useEffect(() => {
     if (typeof window === "undefined" || !mapContainerRef.current) return;
+    let isMounted = true;
 
-    // Dynamically load leaflet
     import("leaflet").then((L) => {
-      if (mapInstanceRef.current) return;
+      if (!isMounted || !mapContainerRef.current || mapInstanceRef.current) return;
 
-      const map = L.map(mapContainerRef.current!).setView([18.6450, 73.7750], 13);
+      // Reset any stray leaflet ID if container was re-used during HMR
+      if ((mapContainerRef.current as any)._leaflet_id) {
+        (mapContainerRef.current as any)._leaflet_id = null;
+      }
+
+      const map = L.map(mapContainerRef.current).setView([18.6450, 73.7750], 13);
       mapInstanceRef.current = map;
 
       // Official OpenStreetMap tiles (100% free, no API key, no watermark)
@@ -51,6 +57,10 @@ export default function MapScreen() {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | SaansAI v2 PCCOE',
         maxZoom: 19
       }).addTo(map);
+
+      // Layer group for dynamic markers
+      const markerGroup = L.layerGroup().addTo(map);
+      markersLayerRef.current = markerGroup;
 
       // Map Click Handler: Click-to-inspect micro-zone
       map.on("click", async (e: any) => {
@@ -61,14 +71,14 @@ export default function MapScreen() {
           const data = await res.json();
           setInspectedPoint(data);
 
-          // Add a temporary inspection circle/marker
+          // Add inspection pin to map
           L.circleMarker([lat, lng], {
             radius: 8,
             color: "#10b981",
             fillColor: "#059669",
-            fillOpacity: 0.8
+            fillOpacity: 0.85
           }).addTo(map).bindPopup(`
-            <div style="color: #0f172a; font-family: sans-serif; font-size: 12px;">
+            <div style="color: #0f172a; font-family: sans-serif; font-size: 12px; padding: 2px;">
               <b>Micro-Zone Reading</b><br/>
               PM2.5: <b>${data.pm25} µg/m³</b> (AQI: ${data.aqi})<br/>
               Confidence: <b>${data.confidence_pct}%</b>
@@ -83,19 +93,23 @@ export default function MapScreen() {
     });
 
     return () => {
+      isMounted = false;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        markersLayerRef.current = null;
       }
     };
   }, []);
 
   // Update Markers on Leaflet Map
   useEffect(() => {
-    if (!mapInstanceRef.current || stations.length === 0) return;
+    if (!mapInstanceRef.current || !markersLayerRef.current || stations.length === 0) return;
 
     import("leaflet").then((L) => {
-      const map = mapInstanceRef.current;
+      const group = markersLayerRef.current;
+      if (!group) return;
+      group.clearLayers();
 
       // Add Station Pins
       stations.forEach((st) => {
@@ -107,8 +121,8 @@ export default function MapScreen() {
           color: "#ffffff",
           weight: 2,
           fillColor: color,
-          fillOpacity: 0.9
-        }).addTo(map);
+          fillOpacity: 0.95
+        });
 
         circle.bindPopup(`
           <div style="color: #0f172a; font-family: sans-serif; padding: 4px;">
@@ -119,22 +133,28 @@ export default function MapScreen() {
             Indian NAQI: <b style="color: ${color}; font-size: 14px;">${st.aqi}</b>
           </div>
         `);
+
+        group.addLayer(circle);
       });
 
       // Add Traffic Hotspots
       traffic.forEach((tr) => {
-        L.circleMarker([tr.lat, tr.lon], {
+        const tCircle = L.circleMarker([tr.lat, tr.lon], {
           radius: 7,
           color: "#f59e0b",
           fillColor: "#d97706",
-          fillOpacity: 0.75
-        }).addTo(map).bindPopup(`
+          fillOpacity: 0.8
+        });
+
+        tCircle.bindPopup(`
           <div style="color: #0f172a; font-family: sans-serif; font-size: 11px;">
             <b>🚦 Traffic Hotspot: ${tr.name}</b><br/>
             Speed: <b>${tr.current_speed_kmh} km/h</b> (Free: ${tr.free_flow_speed_kmh} km/h)<br/>
             Congestion Ratio: <b>${(tr.congestion_ratio * 100).toFixed(0)}%</b>
           </div>
         `);
+
+        group.addLayer(tCircle);
       });
     });
   }, [stations, traffic]);
