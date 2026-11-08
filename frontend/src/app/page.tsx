@@ -1,26 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
 import Navbar from "@/components/Navbar";
 import NowScreen from "@/components/NowScreen";
+import MapScreen from "@/components/MapScreen";
 import PlanScreen from "@/components/PlanScreen";
 import CampusScreen from "@/components/CampusScreen";
-
-// Dynamically import MapScreen with ssr: false to prevent Node.js Webpack runtime error
-const MapScreen = dynamic(() => import("@/components/MapScreen"), {
-  ssr: false,
-  loading: () => (
-    <div className="max-w-7xl mx-auto px-4 py-32 text-center text-slate-400">
-      <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-r-transparent mb-3" />
-      <p className="text-sm">Loading Hyperlocal Map & Spatial Layers...</p>
-    </div>
-  ),
-});
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("now");
   const [serverOnline, setServerOnline] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Ping backend health
   useEffect(() => {
@@ -51,7 +45,16 @@ export default function Home() {
 
       <main className="flex-1 pb-16">
         {activeTab === "now" && <NowScreen />}
-        {activeTab === "map" && <MapScreen />}
+        {activeTab === "map" && (
+          mounted ? (
+            <MapScreen />
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 py-32 text-center text-slate-400">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-r-transparent mb-3" />
+              <p className="text-sm">Mounting Hyperlocal Map...</p>
+            </div>
+          )
+        )}
         {activeTab === "plan" && <PlanScreen />}
         {activeTab === "campus" && <CampusScreen />}
       </main>
