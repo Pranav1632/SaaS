@@ -64,8 +64,8 @@ async def trigger_t20_sentinel_alert(
                     "Title": title,
                     "Priority": "urgent",  # Level 5: forces heads-up banner & vibration every time
                     "Tags": "warning,wind_face,mask",
-                    # Interactive action button displayed directly inside phone notification:
-                    "Actions": f"view, 🌿 Switch to Clean Route, https://ntfy.sh/{ntfy_topic}"
+                    # Clean ASCII Action button displayed directly inside phone notification:
+                    "Actions": f"view, Switch to Clean Route, https://ntfy.sh/{ntfy_topic}"
                 }
             )
             if resp.status_code == 200:
