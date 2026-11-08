@@ -45,9 +45,10 @@ export default function MapScreen() {
       const map = L.map(mapContainerRef.current!).setView([18.6450, 73.7750], 13);
       mapInstanceRef.current = map;
 
-      // Dark theme tiles from CartoDB
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> | SaansAI v2 PCCOE',
+      // Official OpenStreetMap tiles (100% free, no API key, no watermark)
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        subdomains: ["a", "b", "c"],
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | SaansAI v2 PCCOE',
         maxZoom: 19
       }).addTo(map);
 

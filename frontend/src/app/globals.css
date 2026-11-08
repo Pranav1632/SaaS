@@ -14,7 +14,14 @@ body {
   overflow-x: hidden;
 }
 
-/* Custom modern scrollbars */
+/* Leaflet dark theme map tiles filter */
+.leaflet-tile-pane {
+  filter: brightness(0.7) invert(1) contrast(2.2) hue-rotate(190deg) saturate(0.4) brightness(0.9);
+}
+
+.leaflet-container {
+  background: #090d16 !important;
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
