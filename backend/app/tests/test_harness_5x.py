@@ -2,6 +2,7 @@
 5-Cycle Automated Stress & Verification Harness for SaansAI Backend.
 Validates stability, repeatability, and correctness over 5 distinct simulation passes.
 """
+import pytest
 import asyncio
 import time
 from app.sources.stations import fetch_station_readings
@@ -69,6 +70,10 @@ async def run_5x_verification():
     print("\n" + "="*80)
     print("ALL 5 VERIFICATION CYCLES COMPLETED WITH 100% SUCCESS!")
     print("="*80 + "\n")
+
+@pytest.mark.asyncio
+async def test_5x_verification_suite():
+    await run_5x_verification()
 
 if __name__ == "__main__":
     asyncio.run(run_5x_verification())

@@ -102,3 +102,73 @@ async def test_campus_status():
         assert data["campus_name"] is not None
         assert data["sports_recess_status"] in ["PERMITTED", "RESTRICTED", "PROHIBITED"]
         assert "outdoor_intake_dampers" in data["hvac_state"]
+
+@pytest.mark.asyncio
+async def test_weather_and_traffic():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Weather
+        r_w = await client.get("/api/weather?lat=18.6279&lon=73.7636")
+        assert r_w.status_code == 200
+        w_data = r_w.json()
+        assert "temperature_c" in w_data
+        assert "ventilation_index" in w_data
+
+        # Traffic
+        r_t = await client.get("/api/traffic")
+        assert r_t.status_code == 200
+        t_data = r_t.json()
+        assert len(t_data) >= 3
+        assert 0.0 <= t_data[0]["congestion_ratio"] <= 1.0
+
+@pytest.mark.asyncio
+async def test_crowd_reports():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Get existing reports
+        r_get = await client.get("/api/crowd-reports")
+        assert r_get.status_code == 200
+        reports = r_get.json()
+        assert isinstance(reports, list)
+
+        # Post a new report
+        new_rep = {
+            "report_type": "road_digging",
+            "description": "Trench digging along Spine Road near PCCOE sector 26",
+            "lat": 18.6540,
+            "lon": 73.7650,
+            "reported_by": "Test Suite Student"
+        }
+        r_post = await client.post("/api/crowd-reports", json=new_rep)
+        assert r_post.status_code == 200
+        created = r_post.json()
+        assert created["description"] == new_rep["description"]
+        assert created["reported_by"] == "Test Suite Student"
+
+@pytest.mark.asyncio
+async def test_forecast_and_sentinel_simulate():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Forecast
+        r_fc = await client.get("/api/forecast?lat=18.6279&lon=73.7636")
+        assert r_fc.status_code == 200
+        fc_data = r_fc.json()
+        assert len(fc_data["forecast_hours"]) > 0
+        assert "best_window" in fc_data
+
+        # Sentinel simulation
+        sentinel_payload = {
+            "trip_id": "test_trip_1",
+            "scheduled_departure": "08:30",
+            "origin_key": "nigdi_to_pccoe",
+            "activity": "two_wheeler",
+            "vulnerability_group": "respiratory",
+            "ntfy_topic": "saansai-pccoe-alerts"
+        }
+        r_sentinel = await client.post("/api/sentinel/simulate", json=sentinel_payload)
+        assert r_sentinel.status_code == 200
+        sent_data = r_sentinel.json()
+        assert "alert_title" in sent_data
+        assert "alert_message" in sent_data
+        assert "recommended_route_name" in sent_data
+        assert sent_data["push_delivered"] is True

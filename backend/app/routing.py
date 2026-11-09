@@ -217,13 +217,13 @@ async def evaluate_route_options(
     # Reduction calculation
     reduction_pct = 0.0
     time_penalty = 0
-    if dirtiest.cumulative_inhaled_mass_ug > cleanest.cumulative_inhaled_mass_ug:
+    if dirtiest.cumulative_inhaled_mass_ug > cleanest.cumulative_inhaled_mass_ug and dirtiest.cumulative_inhaled_mass_ug > 0:
         reduction_pct = round(
             ((dirtiest.cumulative_inhaled_mass_ug - cleanest.cumulative_inhaled_mass_ug) / dirtiest.cumulative_inhaled_mass_ug) * 100,
             1
         )
         time_penalty = max(0, cleanest.duration_minutes - dirtiest.duration_minutes)
-    elif dirtiest.avg_pm25 > cleanest.avg_pm25:
+    elif dirtiest.avg_pm25 > cleanest.avg_pm25 and dirtiest.avg_pm25 > 0:
         reduction_pct = round(((dirtiest.avg_pm25 - cleanest.avg_pm25) / dirtiest.avg_pm25) * 100, 1)
         time_penalty = max(0, cleanest.duration_minutes - dirtiest.duration_minutes)
 

@@ -73,20 +73,22 @@ def compute_personal_dose(
     vuln_weight = VULNERABILITY_WEIGHTS.get(vulnerability_group.lower(), 1.00)
 
     # Effective inhaled PM2.5 concentration after filtration
-    effective_pm25 = max(1.0, pm25 * micro_factor * mask_factor)
-
-    # Inhaled mass in micrograms (ug):
-    # ve (L/min) * (1 m3 / 1000 L) * duration (min) * effective_pm25 (ug/m3)
-    inhaled_volume_m3 = (ve / 1000.0) * duration_minutes
-    inhaled_mass_ug = round(effective_pm25 * inhaled_volume_m3, 1)
-
-    # Cigarette equivalence heuristic (Berkeley Earth: ~330 ug inhaled PM2.5 ~= 1 cigarette)
-    cigarette_equiv = round(inhaled_mass_ug / 330.0, 2)
-
-    # Saturated exposure score (0 to 100):
-    # Log-linear saturating curve: 100 * [1 - exp(- (mass / 220) * vuln_weight)]
-    saturated_score = 100.0 * (1.0 - math.exp(- (inhaled_mass_ug / 220.0) * vuln_weight))
-    exposure_score = int(round(max(0.0, min(100.0, saturated_score))))
+    if pm25 <= 0.0 or duration_minutes <= 0:
+        effective_pm25 = 0.0
+        inhaled_mass_ug = 0.0
+        cigarette_equiv = 0.0
+        exposure_score = 0
+    else:
+        effective_pm25 = max(0.1, pm25 * micro_factor * mask_factor)
+        # Inhaled mass in micrograms (ug):
+        # ve (L/min) * (1 m3 / 1000 L) * duration (min) * effective_pm25 (ug/m3)
+        inhaled_volume_m3 = (ve / 1000.0) * duration_minutes
+        inhaled_mass_ug = round(effective_pm25 * inhaled_volume_m3, 1)
+        cigarette_equiv = round(inhaled_mass_ug / 330.0, 2)
+        # Saturated exposure score (0 to 100):
+        # Log-linear saturating curve: 100 * [1 - exp(- (mass / 220) * vuln_weight)]
+        saturated_score = 100.0 * (1.0 - math.exp(- (inhaled_mass_ug / 220.0) * vuln_weight))
+        exposure_score = int(round(max(0.0, min(100.0, saturated_score))))
 
     # Risk tiers
     if exposure_score <= 25:

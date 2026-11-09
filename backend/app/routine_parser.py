@@ -114,20 +114,38 @@ def fallback_rule_parser(user_prompt: str) -> List[ScheduledTrip]:
 
     trips = []
     # Check for morning and evening mentions
-    # Morning commute match
-    time_matches = re.findall(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", lower)
+    # Match valid times like "8:20 am", "8:20", "6 pm", "18:30"
+    time_matches = re.findall(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", lower)
     
     dep_am = "08:30"
     dep_pm = "18:00"
     
     if time_matches:
         for m in time_matches:
-            hr, mn, ampm = int(m[0]), int(m[1]) if m[1] else 0, m[2]
-            if ampm == "pm" and hr < 12:
-                hr += 12
-            elif ampm == "am" and hr == 12:
-                hr = 0
-            
+            has_explicit_min = bool(m[1])
+            has_ampm = bool(m[2])
+            # If neither explicit minutes nor am/pm are present, skip (it's a route/bus/sector number)
+            if not has_explicit_min and not has_ampm:
+                continue
+
+            hr = int(m[0])
+            mn = int(m[1]) if m[1] else 0
+            ampm = m[2]
+
+            if has_ampm:
+                if not (1 <= hr <= 12):
+                    continue
+                if ampm == "pm" and hr < 12:
+                    hr += 12
+                elif ampm == "am" and hr == 12:
+                    hr = 0
+            else:
+                if not (0 <= hr <= 23):
+                    continue
+
+            if not (0 <= mn <= 59):
+                continue
+
             formatted = f"{hr:02d}:{mn:02d}"
             if hr < 13:
                 dep_am = formatted

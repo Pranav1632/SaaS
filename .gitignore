@@ -11,6 +11,8 @@ env/
 *.sqlite3
 *.db
 .env
+*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
 .pytest_cache/
 
 # Node & Next.js

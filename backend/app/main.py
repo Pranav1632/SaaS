@@ -166,17 +166,20 @@ async def get_campus_status():
 @app.get("/api/stream")
 async def sse_stream():
     async def event_generator():
-        while True:
-            # Send latest PCCOE campus reading and weather update
-            conc = await estimate_concentration_at_point(18.6517, 73.7615)
-            payload = {
-                "timestamp": time.time(),
-                "campus_pm25": conc.pm25,
-                "campus_aqi": conc.aqi,
-                "confidence_pct": conc.confidence_pct,
-                "sources": conc.source_percentages
-            }
-            yield f"data: {json.dumps(payload)}\n\n"
-            await asyncio.sleep(8.0)  # Push every 8 seconds
+        try:
+            while True:
+                # Send latest PCCOE campus reading and weather update
+                conc = await estimate_concentration_at_point(18.6517, 73.7615)
+                payload = {
+                    "timestamp": time.time(),
+                    "campus_pm25": conc.pm25,
+                    "campus_aqi": conc.aqi,
+                    "confidence_pct": conc.confidence_pct,
+                    "sources": conc.source_percentages
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                await asyncio.sleep(8.0)  # Push every 8 seconds
+        except asyncio.CancelledError:
+            pass
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

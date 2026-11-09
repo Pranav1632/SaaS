@@ -106,8 +106,10 @@ async def get_short_horizon_forecast(lat: float = 18.6279, lon: float = 73.7636)
             mult = 1.25 if (8 <= h <= 10 or 19 <= h <= 21) else (0.80 if 13 <= h <= 16 else 1.0)
             pm = round(base_pm * mult, 1)
             from .sources.stations import calculate_indian_aqi
+            t_offset = now + offset * 3600
+            iso_stamp = time.strftime("%Y-%m-%dT%H:00", time.localtime(t_offset))
             forecast_list.append(ForecastHour(
-                timestamp=f"2026-11-07T{h:02d}:00",
+                timestamp=iso_stamp,
                 hour_label=hr_label,
                 pm25=pm,
                 pm25_lower=round(pm * 0.85, 1),

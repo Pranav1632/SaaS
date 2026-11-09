@@ -15,6 +15,7 @@ export default function MapScreen() {
   const [crowdReports, setCrowdReports] = useState<any[]>([]);
   const [inspectedPoint, setInspectedPoint] = useState<any>(null);
   const [loadingInspection, setLoadingInspection] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   // Fetch stations, traffic, and crowd reports
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function MapScreen() {
       // Layer group for dynamic markers
       const markerGroup = L.layerGroup().addTo(map);
       markersLayerRef.current = markerGroup;
+      setMapReady(true);
 
       // Map Click Handler: Click-to-inspect micro-zone
       map.on("click", async (e: any) => {
@@ -94,6 +96,7 @@ export default function MapScreen() {
 
     return () => {
       isMounted = false;
+      setMapReady(false);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -104,7 +107,7 @@ export default function MapScreen() {
 
   // Update Markers on Leaflet Map
   useEffect(() => {
-    if (!mapInstanceRef.current || !markersLayerRef.current || stations.length === 0) return;
+    if (!mapReady || !mapInstanceRef.current || !markersLayerRef.current || stations.length === 0) return;
 
     import("leaflet").then((L) => {
       const group = markersLayerRef.current;
@@ -157,7 +160,7 @@ export default function MapScreen() {
         group.addLayer(tCircle);
       });
     });
-  }, [stations, traffic]);
+  }, [mapReady, stations, traffic]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -253,19 +256,19 @@ export default function MapScreen() {
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Road Traffic:</span>
-                      <span className="font-semibold text-emerald-400">{inspectedPoint.source_percentages.traffic}%</span>
+                      <span className="font-semibold text-emerald-400">{inspectedPoint.source_percentages?.traffic ?? 0}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Industrial Plumes:</span>
-                      <span className="font-semibold text-amber-400">{inspectedPoint.source_percentages.industry}%</span>
+                      <span className="font-semibold text-amber-400">{inspectedPoint.source_percentages?.industry ?? 0}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Dust & Construction:</span>
-                      <span className="font-semibold text-orange-400">{inspectedPoint.source_percentages.construction}%</span>
+                      <span className="font-semibold text-orange-400">{inspectedPoint.source_percentages?.construction ?? 0}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Regional Background:</span>
-                      <span className="font-semibold text-slate-300">{inspectedPoint.source_percentages.background}%</span>
+                      <span className="font-semibold text-slate-300">{inspectedPoint.source_percentages?.background ?? 0}%</span>
                     </div>
                   </div>
                 </div>

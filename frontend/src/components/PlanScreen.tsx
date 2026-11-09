@@ -320,7 +320,9 @@ export default function PlanScreen() {
               {/* Lock screen time */}
               <div className="text-center mb-6">
                 <span className="text-4xl font-extralight text-white tracking-wider">08:00</span>
-                <span className="text-xs text-slate-400 block mt-0.5">Friday, November 8</span>
+                <span className="text-xs text-slate-400 block mt-0.5">
+                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                </span>
               </div>
 
               {/* Push Notification Banner */}

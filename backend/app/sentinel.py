@@ -45,7 +45,7 @@ async def trigger_t20_sentinel_alert(
     highway_route = comp.routes[0]
 
     now_time = time.strftime("%H:%M:%S")
-    title = f"SaansAI Alert (T-20 Min) • {now_time}"
+    title = f"SaansAI Alert (T-20 Min) - {now_time}"
     message = (
         f"Spine/Highway corridor PM2.5 is {highway_route.avg_pm25} µg/m³. "
         f"Switch to '{clean_route.name}' to cut inhaled toxic burden by {comp.exposure_reduction_pct}% "
