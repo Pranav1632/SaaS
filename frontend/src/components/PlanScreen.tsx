@@ -11,7 +11,12 @@ import {
   Smartphone, 
   MapPin, 
   Sparkles,
-  Zap
+  Zap,
+  Route,
+  Navigation,
+  ExternalLink,
+  ChevronRight,
+  TrendingDown
 } from "lucide-react";
 
 const BACKEND_URL = "http://localhost:8000";
@@ -58,7 +63,9 @@ export default function PlanScreen() {
   const fetchRoutes = async (originKey: string) => {
     try {
       setLoadingRoutes(true);
-      const res = await fetch(`${BACKEND_URL}/api/routes/compare?origin_key=${originKey}&activity=two_wheeler&vulnerability_group=respiratory`);
+      const res = await fetch(
+        `${BACKEND_URL}/api/routes/compare?origin_key=${originKey}&activity=two_wheeler&vulnerability_group=respiratory`
+      );
       const data = await res.json();
       setRouteComparison(data);
     } catch (err) {
@@ -73,15 +80,15 @@ export default function PlanScreen() {
   }, [routeOrigin]);
 
   // Parse routine text
-  const handleParseRoutine = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userText.trim()) return;
+  const handleParseRoutine = async (textToParse?: string) => {
+    const query = textToParse || userText;
+    if (!query.trim()) return;
     try {
       setParsing(true);
       const res = await fetch(`${BACKEND_URL}/api/routine/parse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_text: userText })
+        body: JSON.stringify({ user_text: query })
       });
       const data = await res.json();
       if (data.trips && data.trips.length > 0) {
@@ -119,63 +126,117 @@ export default function PlanScreen() {
     }
   };
 
+  const samplePrompts = [
+    "I ride my two-wheeler to PCCOE college from Nigdi at 8:20 AM, and my brother with asthma jogs at 6:30 PM.",
+    "Bus commute from Chinchwad Station to PCCOE Akurdi at 09:00 AM.",
+    "Cycle ride around Ravet & PCCOE campus at 07:15 AM for a student with respiratory allergy."
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* 1. Conversational Q&A Routine Architect */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* 1. Conversational Routine Architect */}
+      <div className="bg-[#0d131f] border border-white/[0.08] rounded-2xl p-6 shadow-2xl space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
           <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-emerald-400" />
-              Conversational Routine Architect (Ollama LLM)
-            </h2>
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-emerald-400" />
+              <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                Conversational Routine Architect (Ollama LLM)
+              </h2>
+            </div>
             <p className="text-xs text-slate-400 mt-1">
-              State your schedule in plain words. SaansAI extracts departure waypoints and arms T-20 departure sentinels.
+              Natural language itinerary extraction. SaansAI automatically arms T-20 departure sentinels.
             </p>
           </div>
-          <span className="text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-lg">
-            Local Model: qwen2.5:3b
-          </span>
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+              Engine: Ollama (qwen2.5:3b) + Regex Fallback
+            </span>
+          </div>
         </div>
 
-        <form onSubmit={handleParseRoutine} className="flex gap-2">
-          <input
-            type="text"
-            value={userText}
-            onChange={(e) => setUserText(e.target.value)}
-            placeholder="e.g. I leave home in Nigdi at 8:20 AM for PCCOE on my bike..."
-            className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-          <button
-            type="submit"
-            disabled={parsing}
-            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-5 py-3 rounded-xl font-semibold text-sm transition flex items-center gap-2 disabled:opacity-50"
-          >
-            {parsing ? <Zap className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            <span>Parse Itinerary</span>
-          </button>
+        {/* Command-Palette Style Input Form */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleParseRoutine();
+          }}
+          className="space-y-3"
+        >
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <input
+              type="text"
+              value={userText}
+              onChange={(e) => setUserText(e.target.value)}
+              placeholder="e.g. I leave home in Nigdi at 8:20 AM for PCCOE on my bike..."
+              className="flex-1 bg-[#080c14] border border-white/[0.08] rounded-xl px-4 py-3 text-xs sm:text-sm font-mono text-slate-200 focus:outline-none focus:border-emerald-500/50 shadow-inner"
+            />
+            <button
+              type="submit"
+              disabled={parsing}
+              className="bg-emerald-500 hover:bg-emerald-400 text-[#06090e] px-5 py-3 rounded-xl font-bold font-mono text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 shrink-0"
+            >
+              {parsing ? (
+                <Zap className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              <span>{parsing ? "Parsing..." : "Extract Itinerary"}</span>
+            </button>
+          </div>
+
+          {/* Quick-Prompt Suggestions */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[10px] font-mono text-slate-500 uppercase mr-1">Presets:</span>
+            {samplePrompts.map((p, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setUserText(p);
+                  handleParseRoutine(p);
+                }}
+                className="text-[11px] font-mono bg-[#080c14] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg border border-white/[0.06] transition text-left truncate max-w-xs"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </form>
 
-        {/* Visual Daily Timeline Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        {/* Extracted Waypoint Itinerary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
           {trips.map((t, idx) => (
-            <div key={idx} className="bg-slate-950 p-4 rounded-xl border border-slate-800 relative">
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">{t.title}</span>
-                <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">
+            <div
+              key={idx}
+              className="bg-[#080c14] p-4 rounded-xl border border-white/[0.06] relative font-mono space-y-3"
+            >
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                  {t.title}
+                </span>
+                <span className="text-[10px] bg-white/[0.06] text-slate-300 px-2 py-0.5 rounded border border-white/[0.08]">
                   Departs: {t.departure_time}
                 </span>
               </div>
-              <div className="text-xs text-slate-300 space-y-1">
-                <p>📍 {t.origin} ➔ {t.destination}</p>
-                <p>🛵 Travel Mode: <span className="text-slate-400 capitalize">{t.travel_mode.replace("_", " ")}</span></p>
-                <p>🛡️ Profile: <span className="text-amber-400 capitalize">{t.vulnerability_group}</span></p>
+
+              <div className="text-xs text-slate-300 space-y-1 font-sans">
+                <p className="flex items-center gap-1.5 font-mono text-[11px]">
+                  <MapPin className="h-3 w-3 text-emerald-400 shrink-0" />
+                  <span className="text-white font-medium">{t.origin}</span>
+                  <ArrowRight className="h-3 w-3 text-slate-500" />
+                  <span className="text-white font-medium">{t.destination}</span>
+                </p>
+                <div className="flex items-center gap-3 pt-1 text-[11px] font-mono text-slate-400">
+                  <span>Mode: <strong className="text-slate-200 capitalize">{t.travel_mode.replace("_", " ")}</strong></span>
+                  <span>Profile: <strong className="text-amber-400 capitalize">{t.vulnerability_group}</strong></span>
+                </div>
               </div>
 
-              <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-slate-400">
                 <span className="flex items-center gap-1.5 text-emerald-400">
                   <Bell className="h-3.5 w-3.5" />
-                  T-20 Sentinel armed for <b>{t.t_minus_alert_time}</b>
+                  <span>T-20 Sentinel armed for <strong>{t.t_minus_alert_time}</strong></span>
                 </span>
                 <span className="text-[10px] text-slate-500">20 min prior</span>
               </div>
@@ -185,25 +246,27 @@ export default function PlanScreen() {
       </div>
 
       {/* 2. Real Road Geometry Route Comparison (OSRM) */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="bg-[#0d131f] border border-white/[0.08] rounded-2xl p-6 shadow-2xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
           <div>
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-emerald-400" />
-              Clean Air Corridor Comparison (OSRM Real Geometry)
-            </h3>
+            <div className="flex items-center gap-2">
+              <Route className="h-4 w-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                Clean Air Corridor Comparison (OSRM Road Polyline Sampling)
+              </h3>
+            </div>
             <p className="text-xs text-slate-400 mt-1">
-              Comparing arterial highway routes against green residential corridors.
+              Physiological dose comparison: Old Pune-Mumbai Highway vs Pradhikaran Green Corridor.
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 font-mono">
             <button
               onClick={() => setRouteOrigin("nigdi_to_pccoe")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                 routeOrigin === "nigdi_to_pccoe"
-                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                  : "bg-slate-950 text-slate-400 border-slate-800"
+                  ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/40 font-semibold"
+                  : "bg-[#080c14] text-slate-400 border-white/[0.06] hover:text-slate-200"
               }`}
             >
               Nigdi ➔ PCCOE Campus
@@ -212,8 +275,8 @@ export default function PlanScreen() {
               onClick={() => setRouteOrigin("pccoe_to_hinjewadi")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                 routeOrigin === "pccoe_to_hinjewadi"
-                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                  : "bg-slate-950 text-slate-400 border-slate-800"
+                  ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/40 font-semibold"
+                  : "bg-[#080c14] text-slate-400 border-white/[0.06] hover:text-slate-200"
               }`}
             >
               PCCOE ➔ Hinjewadi IT Park
@@ -222,46 +285,61 @@ export default function PlanScreen() {
         </div>
 
         {/* Route Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 font-mono">
           {routeComparison?.routes?.map((r: any, idx: number) => {
             const isCleanest = r.route_id === routeComparison.cleanest_route_id;
             return (
               <div
                 key={idx}
-                className={`p-5 rounded-2xl border transition-all ${
+                className={`p-5 rounded-xl border transition-all ${
                   isCleanest
-                    ? "bg-emerald-950/20 border-emerald-500/40 shadow-lg shadow-emerald-500/10"
-                    : "bg-slate-950 border-slate-800"
+                    ? "bg-[#080c14] border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.06)]"
+                    : "bg-[#080c14] border-white/[0.06]"
                 }`}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <span className={`text-xs font-bold uppercase tracking-wider ${isCleanest ? "text-emerald-400" : "text-slate-400"}`}>
+                  <span
+                    className={`text-xs font-bold uppercase tracking-wider ${
+                      isCleanest ? "text-emerald-400" : "text-slate-400"
+                    }`}
+                  >
                     {r.name}
                   </span>
                   {isCleanest && (
-                    <span className="text-[10px] font-bold bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full">
-                      Cleanest Choice
+                    <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      Recommended Clean Choice
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 mb-4">{r.summary}</p>
+                <p className="text-xs text-slate-400 font-sans mb-4 leading-relaxed">{r.summary}</p>
 
-                <div className="grid grid-cols-3 gap-2 text-center mb-4">
-                  <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">Avg PM2.5</span>
-                    <span className="text-base font-bold text-white">{r.avg_pm25} µg</span>
+                <div className="grid grid-cols-3 gap-2.5 text-center mb-4">
+                  <div className="bg-[#0d131f] p-2.5 rounded-lg border border-white/[0.04]">
+                    <span className="text-[10px] text-slate-500 block uppercase">Avg PM2.5</span>
+                    <span className="text-base font-black text-white tabular-nums">{r.avg_pm25}</span>
+                    <span className="text-[9px] text-slate-500 block">µg/m³</span>
                   </div>
-                  <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">Trip Time</span>
-                    <span className="text-base font-bold text-slate-200">{r.duration_minutes} min</span>
+                  <div className="bg-[#0d131f] p-2.5 rounded-lg border border-white/[0.04]">
+                    <span className="text-[10px] text-slate-500 block uppercase">Travel Time</span>
+                    <span className="text-base font-black text-slate-200 tabular-nums">
+                      {r.duration_minutes}
+                    </span>
+                    <span className="text-[9px] text-slate-500 block">min</span>
                   </div>
-                  <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">Inhaled Dose</span>
-                    <span className="text-base font-bold text-amber-400">{r.cumulative_inhaled_mass_ug} µg</span>
+                  <div className="bg-[#0d131f] p-2.5 rounded-lg border border-white/[0.04]">
+                    <span className="text-[10px] text-slate-500 block uppercase">Inhaled Dose</span>
+                    <span
+                      className={`text-base font-black tabular-nums ${
+                        isCleanest ? "text-emerald-400" : "text-amber-400"
+                      }`}
+                    >
+                      {r.cumulative_inhaled_mass_ug}
+                    </span>
+                    <span className="text-[9px] text-slate-500 block">µg mass</span>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-800/80">
+                <div className="flex justify-between items-center text-xs text-slate-400 pt-3 border-t border-white/[0.06]">
                   <span>Distance: {r.distance_km} km</span>
                   <span className="font-semibold text-slate-300">Risk Tier: {r.risk_tier}</span>
                 </div>
@@ -270,13 +348,13 @@ export default function PlanScreen() {
           })}
         </div>
 
-        {/* Verdict Box */}
+        {/* Verdict Callout */}
         {routeComparison && (
-          <div className="mt-6 p-4 rounded-xl bg-slate-950 border border-emerald-500/30 flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="p-4 rounded-xl bg-emerald-500/[0.05] border border-emerald-500/20 flex items-start gap-3">
+            <TrendingDown className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
             <div>
-              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
-                SaansAI Trade-off Verdict ({routeComparison.exposure_reduction_pct}% Toxic Dose Reduction)
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block font-mono">
+                Trade-off Verdict: {routeComparison.exposure_reduction_pct}% Inhaled Dose Reduction
               </span>
               <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                 {routeComparison.recommendation}
@@ -286,64 +364,75 @@ export default function PlanScreen() {
         )}
       </div>
 
-      {/* 3. T-20 Departure Sentinel & Real Mobile Push Simulator */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      {/* 3. T-20 Departure Sentinel & Real Phone Push Alert Simulator */}
+      <div className="bg-[#0d131f] border border-white/[0.08] rounded-2xl p-6 shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
           <div>
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Smartphone className="h-5 w-5 text-emerald-400" />
-              T-20 Departure Sentinel & Real Phone Push Alert
-            </h3>
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                T-20 Departure Sentinel & Mobile Phone Push Alert
+              </h3>
+            </div>
             <p className="text-xs text-slate-400 mt-1">
-              Fires a real system push notification to your phone via ntfy.sh and renders the on-screen lock screen preview.
+              Dispatches native system push notifications to your physical phone via ntfy.sh with interactive route switching.
             </p>
           </div>
 
           <button
             onClick={handleTriggerSentinel}
             disabled={sentinelLoading}
-            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+            className="bg-emerald-500 hover:bg-emerald-400 text-[#06090e] font-bold font-mono text-xs px-5 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 shrink-0"
           >
             <Bell className="h-4 w-4" />
-            <span>{sentinelLoading ? "Dispatching Alert..." : "Simulate T-20 Departure Alert"}</span>
+            <span>{sentinelLoading ? "Dispatching..." : "Simulate T-20 Departure Alert"}</span>
           </button>
         </div>
 
-        {/* Phone Mockup Frame & Notification Preview */}
+        {/* Lock Screen Simulation & Phone Instructions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           {/* Left: Mobile Lock Screen Preview */}
           <div className="flex justify-center">
-            <div className="w-[320px] bg-slate-950 rounded-[38px] border-4 border-slate-800 p-4 shadow-2xl relative">
-              {/* Notch */}
-              <div className="w-32 h-4 bg-slate-800 rounded-b-xl mx-auto mb-4" />
-              
-              {/* Lock screen time */}
+            <div className="w-[310px] bg-[#06090e] rounded-[36px] border-4 border-slate-800 p-4 shadow-2xl relative font-sans">
+              {/* Dynamic Island / Camera Notch */}
+              <div className="w-24 h-4 bg-slate-900 rounded-full mx-auto mb-4" />
+
+              {/* Lock Screen Clock */}
               <div className="text-center mb-6">
-                <span className="text-4xl font-extralight text-white tracking-wider">08:00</span>
-                <span className="text-xs text-slate-400 block mt-0.5">
-                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                <span className="text-4xl font-extralight text-white font-mono tracking-wider">
+                  08:00
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                  {new Date().toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric"
+                  })}
                 </span>
               </div>
 
               {/* Push Notification Banner */}
-              <div className="bg-slate-900/95 border border-emerald-500/40 rounded-2xl p-3.5 shadow-xl backdrop-blur-md">
-                <div className="flex items-center justify-between mb-1.5">
+              <div className="bg-[#0f172a]/95 border border-emerald-500/40 rounded-2xl p-3.5 shadow-2xl backdrop-blur-md">
+                <div className="flex items-center justify-between mb-1.5 font-mono">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[11px] font-bold text-white tracking-wide">SaansAI Sentinel</span>
+                    <span className="text-[11px] font-bold text-white tracking-wide">
+                      SaansAI Sentinel
+                    </span>
                   </div>
-                  <span className="text-[10px] text-slate-500">now</span>
+                  <span className="text-[10px] text-slate-400">now</span>
                 </div>
 
-                <p className="text-xs font-semibold text-emerald-400">
+                <p className="text-xs font-semibold text-emerald-400 font-mono">
                   {latestAlert?.alert_title || "SaansAI Alert (T-20 Min): 08:20 Departure"}
                 </p>
                 <p className="text-[11px] text-slate-300 mt-1 leading-snug">
-                  {latestAlert?.alert_message || "Spine Road PM2.5 is 34.7 µg/m³. Switch to 'Pradhikaran Green Corridor' to cut inhaled toxic burden by 20.4%."}
+                  {latestAlert?.alert_message ||
+                    "Spine Road PM2.5 is 34.7 µg/m³. Switch to 'Pradhikaran Green Corridor' to cut inhaled toxic burden by 20.4%."}
                 </p>
 
-                <div className="mt-3 flex gap-2">
-                  <button className="flex-1 bg-emerald-500 text-slate-950 text-[10px] font-bold py-1.5 rounded-lg text-center">
+                <div className="mt-3 flex gap-2 font-mono">
+                  <button className="flex-1 bg-emerald-500 text-slate-950 text-[10px] font-bold py-1.5 rounded-lg text-center hover:bg-emerald-400 transition">
                     Switch to Clean Route
                   </button>
                   <button className="px-2.5 bg-slate-800 text-slate-400 text-[10px] rounded-lg">
@@ -352,41 +441,49 @@ export default function PlanScreen() {
                 </div>
               </div>
 
-              {/* Bottom bar indicator */}
-              <div className="w-28 h-1 bg-slate-700 rounded-full mx-auto mt-8 mb-2" />
+              {/* Home indicator bar */}
+              <div className="w-24 h-1 bg-slate-700 rounded-full mx-auto mt-8 mb-1" />
             </div>
           </div>
 
-          {/* Right: Real Phone Instructions */}
-          <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-            <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              <Zap className="h-4 w-4 text-emerald-400" />
-              Live Testing on Your Actual Smartphone
-            </h4>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              When you click the button above, SaansAI dispatches this exact alert payload to the open-source <b>ntfy.sh</b> gateway.
+          {/* Right: Actual Phone Subscription Console */}
+          <div className="bg-[#080c14] p-5 rounded-xl border border-white/[0.06] space-y-4 font-mono">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-white flex items-center gap-2 uppercase tracking-wider">
+                <Zap className="h-4 w-4 text-emerald-400" />
+                Live Dispatch to Your Phone
+              </h4>
+              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                100% Free • No API Key
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-sans">
+              Clicking <strong>"Simulate T-20 Departure Alert"</strong> publishes instantly to the open-source <strong>ntfy.sh</strong> mobile push broker.
             </p>
 
-            <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 text-xs space-y-2">
-              <span className="text-[11px] text-slate-400 block font-semibold">1. Open on your mobile phone:</span>
+            <div className="bg-[#0d131f] p-3.5 rounded-lg border border-white/[0.06] text-xs space-y-2">
+              <span className="text-[10px] text-slate-400 block uppercase font-semibold">
+                Subscribe in 1-Click:
+              </span>
               <a
                 href={`https://ntfy.sh/${ntfyTopic}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-emerald-400 underline font-mono text-xs block break-all"
+                className="text-emerald-400 hover:underline text-xs flex items-center gap-1.5 break-all"
               >
-                https://ntfy.sh/{ntfyTopic}
+                <span>https://ntfy.sh/{ntfyTopic}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
               </a>
-              <span className="text-[11px] text-slate-400 block font-semibold mt-2">2. Click "Subscribe"</span>
-              <span className="text-[11px] text-slate-500 block">
-                Anytime the alert triggers, a native system banner will pop up on your lock screen!
+              <span className="text-[11px] text-slate-400 block font-sans leading-relaxed pt-1">
+                Install the <strong>ntfy app</strong> (Android/iOS) or open in mobile Chrome to receive real lock screen notifications with urgent priority.
               </span>
             </div>
 
             {latestAlert && (
-              <div className="text-[11px] text-slate-400 flex items-center gap-2 text-emerald-400">
+              <div className="text-[11px] text-emerald-400 flex items-center gap-2 pt-1">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Last dispatched successfully at {latestAlert.current_time}</span>
+                <span>Dispatched successfully at {latestAlert.current_time}</span>
               </div>
             )}
           </div>
