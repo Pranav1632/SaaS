@@ -16,6 +16,18 @@ import {
 
 const BACKEND_URL = "http://localhost:8000";
 
+// Robust Leaflet accessor that avoids Webpack RSC chunk crash in Next.js 15
+const getLeaflet = async () => {
+  if (typeof window === "undefined") return null;
+  if ((window as any).L) return (window as any).L;
+  try {
+    const mod = await import("leaflet");
+    return (mod as any).default || mod;
+  } catch (e) {
+    return (window as any).L || null;
+  }
+};
+
 export default function MapScreen() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -47,78 +59,87 @@ export default function MapScreen() {
     fetchLayers();
   }, []);
 
-  // Initialize Leaflet Map safely
+  // Initialize Leaflet Map safely with window.L
   useEffect(() => {
     if (typeof window === "undefined" || !mapContainerRef.current) return;
     let isMounted = true;
 
-    import("leaflet").then((L) => {
-      if (!isMounted || !mapContainerRef.current || mapInstanceRef.current) return;
+    getLeaflet().then((L) => {
+      if (!L || !isMounted || !mapContainerRef.current) return;
+
+      // Avoid re-initialization if map already exists
+      if (mapInstanceRef.current) return;
 
       // Reset any stray leaflet ID if container was re-used during HMR
       if ((mapContainerRef.current as any)._leaflet_id) {
         (mapContainerRef.current as any)._leaflet_id = null;
       }
 
-      const map = L.map(mapContainerRef.current, {
-        zoomControl: true,
-        attributionControl: false
-      }).setView([18.6450, 73.7750], 13);
-      mapInstanceRef.current = map;
+      try {
+        const map = L.map(mapContainerRef.current, {
+          zoomControl: true,
+          attributionControl: false
+        }).setView([18.6450, 73.7750], 13);
+        mapInstanceRef.current = map;
 
-      // High-contrast clean OpenStreetMap tiles
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        subdomains: ["a", "b", "c"],
-        maxZoom: 19
-      }).addTo(map);
+        // High-contrast clean OpenStreetMap tiles
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          subdomains: ["a", "b", "c"],
+          maxZoom: 19
+        }).addTo(map);
 
-      // Layer group for dynamic markers
-      const markerGroup = L.layerGroup().addTo(map);
-      markersLayerRef.current = markerGroup;
-      setMapReady(true);
+        // Layer group for dynamic markers
+        const markerGroup = L.layerGroup().addTo(map);
+        markersLayerRef.current = markerGroup;
+        setMapReady(true);
 
-      // Map Click Handler: Click-to-inspect micro-zone
-      map.on("click", async (e: any) => {
-        const { lat, lng } = e.latlng;
-        setLoadingInspection(true);
-        try {
-          const res = await fetch(
-            `${BACKEND_URL}/api/concentration?lat=${lat.toFixed(4)}&lon=${lng.toFixed(4)}`
-          );
-          const data = await res.json();
-          setInspectedPoint(data);
+        // Map Click Handler: Click-to-inspect micro-zone
+        map.on("click", async (e: any) => {
+          const { lat, lng } = e.latlng;
+          setLoadingInspection(true);
+          try {
+            const res = await fetch(
+              `${BACKEND_URL}/api/concentration?lat=${lat.toFixed(4)}&lon=${lng.toFixed(4)}`
+            );
+            const data = await res.json();
+            setInspectedPoint(data);
 
-          // Add inspection pin to map
-          L.circleMarker([lat, lng], {
-            radius: 8,
-            color: "#10b981",
-            weight: 2,
-            fillColor: "#059669",
-            fillOpacity: 0.9
-          })
-            .addTo(map)
-            .bindPopup(`
-              <div style="font-family: monospace; font-size: 11px; padding: 2px;">
-                <div style="color: #10b981; font-weight: bold; margin-bottom: 2px;">MICRO-ZONE PROBE</div>
-                <div style="color: #cbd5e1;">Coord: ${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E</div>
-                <div style="color: #f8fafc; font-size: 13px; font-weight: 800; margin: 4px 0;">PM2.5: ${data.pm25} µg/m³ (NAQI: ${data.aqi})</div>
-                <div style="color: #94a3b8; font-size: 10px;">Confidence: ${data.confidence_pct}% • Nearest: ${data.nearest_station_km}km</div>
-              </div>
-            `)
-            .openPopup();
-        } catch (err) {
-          console.error("Inspection error:", err);
-        } finally {
-          setLoadingInspection(false);
-        }
-      });
+            // Add inspection pin to map
+            L.circleMarker([lat, lng], {
+              radius: 8,
+              color: "#10b981",
+              weight: 2,
+              fillColor: "#059669",
+              fillOpacity: 0.9
+            })
+              .addTo(map)
+              .bindPopup(`
+                <div style="font-family: monospace; font-size: 11px; padding: 2px;">
+                  <div style="color: #10b981; font-weight: bold; margin-bottom: 2px;">MICRO-ZONE PROBE</div>
+                  <div style="color: #cbd5e1;">Coord: ${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E</div>
+                  <div style="color: #f8fafc; font-size: 13px; font-weight: 800; margin: 4px 0;">PM2.5: ${data.pm25} µg/m³ (NAQI: ${data.aqi})</div>
+                  <div style="color: #94a3b8; font-size: 10px;">Confidence: ${data.confidence_pct}% • Nearest: ${data.nearest_station_km}km</div>
+                </div>
+              `)
+              .openPopup();
+          } catch (err) {
+            console.error("Inspection error:", err);
+          } finally {
+            setLoadingInspection(false);
+          }
+        });
+      } catch (err) {
+        console.error("Leaflet init error:", err);
+      }
     });
 
     return () => {
       isMounted = false;
       setMapReady(false);
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          mapInstanceRef.current.remove();
+        } catch (e) {}
         mapInstanceRef.current = null;
         markersLayerRef.current = null;
       }
@@ -129,7 +150,8 @@ export default function MapScreen() {
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !markersLayerRef.current || stations.length === 0) return;
 
-    import("leaflet").then((L) => {
+    getLeaflet().then((L) => {
+      if (!L) return;
       const group = markersLayerRef.current;
       if (!group) return;
       group.clearLayers();
