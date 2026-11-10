@@ -1,5 +1,8 @@
 # SaansAI v2 — Hyperlocal Exposure Intelligence for Pune & PCCOE
+## Mobile Push Alert
 
+![Mobile Push Alert](docs/mobile_push_alert.jpg)
+### explain how the notifications looks
 > Turning raw air quality into personal alveolar dose, explainable source attribution ("Why is the air bad right here?"), and proactive departure guidance 20 minutes before you leave.
 
 ---

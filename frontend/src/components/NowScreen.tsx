@@ -20,6 +20,17 @@ import {
 
 const BACKEND_URL = "http://localhost:8000";
 
+const safeJsonFetch = async (url: string, options?: RequestInit) => {
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
 export default function NowScreen() {
   const [profile, setProfile] = useState("general");
   const [activity, setActivity] = useState("walking");
@@ -39,19 +50,19 @@ export default function NowScreen() {
     try {
       setLoading(true);
       const [cRes, expRes, fRes, wRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/concentration?lat=18.6517&lon=73.7615`).then((r) => r.json()),
-        fetch(`${BACKEND_URL}/api/explain?lat=18.6517&lon=73.7615`).then((r) => r.json()),
-        fetch(`${BACKEND_URL}/api/forecast?lat=18.6279&lon=73.7636`).then((r) => r.json()),
-        fetch(`${BACKEND_URL}/api/weather?lat=18.6279&lon=73.7636`).then((r) => r.json())
+        safeJsonFetch(`${BACKEND_URL}/api/concentration?lat=18.6517&lon=73.7615`),
+        safeJsonFetch(`${BACKEND_URL}/api/explain?lat=18.6517&lon=73.7615`),
+        safeJsonFetch(`${BACKEND_URL}/api/forecast?lat=18.6279&lon=73.7636`),
+        safeJsonFetch(`${BACKEND_URL}/api/weather?lat=18.6279&lon=73.7636`)
       ]);
 
-      setConcData(cRes);
-      setExplainData(expRes);
-      setForecastData(fRes);
-      setWeatherData(wRes);
+      if (cRes) setConcData(cRes);
+      if (expRes) setExplainData(expRes);
+      if (fRes) setForecastData(fRes);
+      if (wRes) setWeatherData(wRes);
 
       // Fetch personal dose
-      const dRes = await fetch(`${BACKEND_URL}/api/exposure/point`, {
+      const dRes = await safeJsonFetch(`${BACKEND_URL}/api/exposure/point`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -63,9 +74,9 @@ export default function NowScreen() {
           mask: mask,
           vulnerability_group: profile
         })
-      }).then((r) => r.json());
+      });
 
-      setDoseData(dRes);
+      if (dRes) setDoseData(dRes);
     } catch (err) {
       console.error("Backend fetch error:", err);
     } finally {
