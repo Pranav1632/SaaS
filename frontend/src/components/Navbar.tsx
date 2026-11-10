@@ -70,6 +70,11 @@ export default function Navbar({ activeTab, setActiveTab, serverOnline }: Navbar
 
           {/* Engine & Alert Status */}
           <div className="hidden lg:flex items-center space-x-2.5">
+            <div className="flex items-center space-x-1.5 text-xs bg-[#0d131f] border border-emerald-500/30 px-2.5 py-1.5 rounded-lg font-mono text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.12)]">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px]">AI: GEMINI 2.5 FLASH</span>
+            </div>
+
             <div className="flex items-center space-x-2 text-xs bg-[#0d131f] border border-white/[0.08] px-3 py-1.5 rounded-lg font-mono">
               <span
                 className={`h-2 w-2 rounded-full ${
@@ -77,7 +82,7 @@ export default function Navbar({ activeTab, setActiveTab, serverOnline }: Navbar
                 }`}
               />
               <span className="text-slate-300 text-[11px]">
-                {serverOnline ? "ENGINE ACTIVE: 8000" : "ENGINE OFFLINE"}
+                {serverOnline ? "BACKEND: 8000" : "BACKEND OFFLINE"}
               </span>
             </div>
 

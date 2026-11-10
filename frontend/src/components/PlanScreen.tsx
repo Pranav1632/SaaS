@@ -58,6 +58,8 @@ export default function PlanScreen() {
   const [sentinelLoading, setSentinelLoading] = useState(false);
   const [latestAlert, setLatestAlert] = useState<any>(null);
   const [ntfyTopic, setNtfyTopic] = useState("saansai-pccoe-alerts");
+  const [parserUsed, setParserUsed] = useState("google_gemini_2.5_flash");
+  const [feedbackMsg, setFeedbackMsg] = useState("Neural LLM Ready: Google Gemini 2.5 Flash & Ollama");
 
   // Fetch route comparison
   const fetchRoutes = async (originKey: string) => {
@@ -93,6 +95,12 @@ export default function PlanScreen() {
       const data = await res.json();
       if (data.trips && data.trips.length > 0) {
         setTrips(data.trips);
+      }
+      if (data.parser_used) {
+        setParserUsed(data.parser_used);
+      }
+      if (data.feedback_message) {
+        setFeedbackMsg(data.feedback_message);
       }
     } catch (err) {
       console.error("Parse error:", err);
@@ -141,7 +149,7 @@ export default function PlanScreen() {
             <div className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-emerald-400" />
               <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
-                Conversational Routine Architect (Ollama LLM)
+                Conversational Routine Architect (Neural LLM)
               </h2>
             </div>
             <p className="text-xs text-slate-400 mt-1">
@@ -149,11 +157,29 @@ export default function PlanScreen() {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-              Engine: Ollama (qwen2.5:3b) + Regex Fallback
+            <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg flex items-center gap-1.5 shadow-[0_0_10px_rgba(16,185,129,0.15)]">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>
+                {parserUsed === "google_gemini_2.5_flash"
+                  ? "AI Engine: Google Gemini 2.5 Flash (Active)"
+                  : parserUsed === "ollama_local"
+                  ? "AI Engine: Ollama Local LLM (Active)"
+                  : "AI Engine: Deterministic Fallback"}
+              </span>
             </span>
           </div>
         </div>
+
+        {/* Dynamic AI Status Notification */}
+        {feedbackMsg && (
+          <div className="bg-[#080c14] border border-white/[0.06] px-3.5 py-2 rounded-xl text-xs font-mono text-slate-300 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>{feedbackMsg}</span>
+            </div>
+            <span className="text-[10px] text-slate-500 uppercase">Live Model Response</span>
+          </div>
+        )}
 
         {/* Command-Palette Style Input Form */}
         <form

@@ -1,13 +1,16 @@
 """
-Routine Parser using Local Ollama LLM (qwen2.5:3b / llama3.2:1b).
+Routine Parser using Google Gemini 2.5 Flash with Ollama & Deterministic Fallbacks.
 Parses natural language mobility itineraries into structured schedule JSON.
 Strictly guardrailed: does NOT generate medical advice or fake air numbers.
 """
+import os
 import re
 import json
 import httpx
 from pydantic import BaseModel
 from typing import List, Optional
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6I-Ewc6ervg5hhA9XtP7BnqOzmCIntQPZds8xxlmAWcHg")
 
 class ScheduledTrip(BaseModel):
     trip_id: str
@@ -22,7 +25,7 @@ class ScheduledTrip(BaseModel):
 class RoutineParseResponse(BaseModel):
     raw_input: str
     trips: List[ScheduledTrip]
-    parser_used: str  # "ollama_local" | "rule_based_fallback"
+    parser_used: str  # "google_gemini_2.5_flash" | "ollama_local" | "rule_based_fallback"
     feedback_message: str
 
 def compute_t_minus_20(time_str: str) -> str:
@@ -38,6 +41,83 @@ def compute_t_minus_20(time_str: str) -> str:
         return f"{new_hh:02d}:{new_mm:02d}"
     except Exception:
         return "08:10"
+
+def normalize_travel_mode(mode_raw: str) -> str:
+    if not mode_raw:
+        return "two_wheeler"
+    m = mode_raw.lower()
+    if any(k in m for k in ["walk", "jog", "run", "foot"]):
+        return "walking"
+    if any(k in m for k in ["cycle", "bicycle"]):
+        return "cycling"
+    if any(k in m for k in ["car", "cab", "drive", "taxi"]):
+        return "car"
+    return "two_wheeler"
+
+def normalize_vulnerability(vuln_raw: str) -> str:
+    if not vuln_raw:
+        return "general"
+    v = vuln_raw.lower()
+    if any(k in v for k in ["asthma", "respiratory", "copd", "allergy"]):
+        return "respiratory"
+    if any(k in v for k in ["child", "kid", "student", "school"]):
+        return "child"
+    if any(k in v for k in ["elder", "senior", "parent"]):
+        return "elderly"
+    return "general"
+
+async def parse_routine_with_gemini(user_prompt: str) -> Optional[List[ScheduledTrip]]:
+    """
+    Calls Google Gemini 2.5 Flash via REST API with structured JSON output.
+    """
+    if not GEMINI_API_KEY:
+        return None
+
+    system_prompt = (
+        "You are an assistant that extracts daily travel routines from user text into structured JSON. "
+        "Return ONLY a JSON array of objects with keys: "
+        "'title', 'departure_time' (HH:MM 24-hr), 'origin', 'destination', "
+        "'travel_mode' ('walking','two_wheeler','car','cycling'), "
+        "'vulnerability_group' ('general','child','elderly','respiratory')."
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    body = {
+        "contents": [{"parts": [{"text": f"{system_prompt}\nUser: {user_prompt}"}]}],
+        "generationConfig": {"response_mime_type": "application/json"}
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(url, json=body)
+            if resp.status_code == 200:
+                text_json = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(text_json)
+                if isinstance(parsed, dict) and "trips" in parsed:
+                    parsed = parsed["trips"]
+                if isinstance(parsed, list) and len(parsed) > 0:
+                    trips = []
+                    for i, item in enumerate(parsed):
+                        dep = item.get("departure_time", "08:30")
+                        t20 = compute_t_minus_20(dep)
+                        mode = normalize_travel_mode(item.get("travel_mode", "two_wheeler"))
+                        vuln = normalize_vulnerability(item.get("vulnerability_group", "general"))
+                        origin = item.get("origin") or "Nigdi Pradhikaran"
+                        dest = item.get("destination") or "PCCOE Campus (Akurdi)"
+                        trips.append(ScheduledTrip(
+                            trip_id=f"trip_gemini_{i+1}",
+                            title=item.get("title", f"Trip {i+1}"),
+                            departure_time=dep,
+                            origin=origin,
+                            destination=dest,
+                            travel_mode=mode,
+                            vulnerability_group=vuln,
+                            t_minus_alert_time=t20
+                        ))
+                    return trips
+    except Exception as e:
+        print(f"[Gemini 2.5 Flash Parser] Call error: {e}. Falling back...")
+    return None
 
 async def parse_routine_with_ollama(user_prompt: str, model_name: str = "qwen2.5:3b") -> Optional[List[ScheduledTrip]]:
     """
@@ -61,7 +141,7 @@ async def parse_routine_with_ollama(user_prompt: str, model_name: str = "qwen2.5
     }
 
     try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
                 raw_out = resp.json().get("response", "").strip()
@@ -79,8 +159,8 @@ async def parse_routine_with_ollama(user_prompt: str, model_name: str = "qwen2.5
                             departure_time=dep,
                             origin=item.get("origin", "Nigdi"),
                             destination=item.get("destination", "PCCOE Campus"),
-                            travel_mode=item.get("travel_mode", "two_wheeler"),
-                            vulnerability_group=item.get("vulnerability_group", "general"),
+                            travel_mode=normalize_travel_mode(item.get("travel_mode", "two_wheeler")),
+                            vulnerability_group=normalize_vulnerability(item.get("vulnerability_group", "general")),
                             t_minus_alert_time=t20
                         ))
                     return trips
@@ -90,69 +170,32 @@ async def parse_routine_with_ollama(user_prompt: str, model_name: str = "qwen2.5
 
 def fallback_rule_parser(user_prompt: str) -> List[ScheduledTrip]:
     """
-    High-accuracy regex/keyword rule-based parser in case Ollama service is warming up.
+    High-accuracy regex/keyword rule-based parser in case cloud / local LLM is warming up.
     """
     lower = user_prompt.lower()
-    
-    # Detect sensitivity
-    vuln = "general"
-    if "asthma" in lower or "copd" in lower or "bronchitis" in lower or "allergy" in lower:
-        vuln = "respiratory"
-    elif "child" in lower or "kid" in lower or "school" in lower:
-        vuln = "child"
-    elif "elderly" in lower or "parent" in lower or "senior" in lower:
-        vuln = "elderly"
-
-    # Detect travel mode
-    mode = "two_wheeler"
-    if "walk" in lower or "foot" in lower or "jog" in lower or "run" in lower:
-        mode = "walking"
-    elif "cycle" in lower or "bicycle" in lower or "bike ride" in lower:
-        mode = "cycling"
-    elif "car" in lower or "cab" in lower or "drive" in lower:
-        mode = "car"
+    vuln = normalize_vulnerability(lower)
+    mode = normalize_travel_mode(lower)
 
     trips = []
-    # Check for morning and evening mentions
     # Match valid times like "8:20 am", "8:20", "6 pm", "18:30"
     time_matches = re.findall(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", lower)
     
-    dep_am = "08:30"
-    dep_pm = "18:00"
-    
-    if time_matches:
-        for m in time_matches:
-            has_explicit_min = bool(m[1])
-            has_ampm = bool(m[2])
-            # If neither explicit minutes nor am/pm are present, skip (it's a route/bus/sector number)
-            if not has_explicit_min and not has_ampm:
-                continue
+    dep_am = "08:20"
+    dep_pm = "18:30"
 
-            hr = int(m[0])
-            mn = int(m[1]) if m[1] else 0
-            ampm = m[2]
+    for tm in time_matches:
+        h, m, meridiem = tm[0], tm[1] or "00", tm[2]
+        hr_int = int(h)
+        if meridiem == "pm" and hr_int < 12:
+            hr_int += 12
+        elif meridiem == "am" and hr_int == 12:
+            hr_int = 0
+        formatted = f"{hr_int:02d}:{int(m):02d}"
+        if hr_int < 14:
+            dep_am = formatted
+        else:
+            dep_pm = formatted
 
-            if has_ampm:
-                if not (1 <= hr <= 12):
-                    continue
-                if ampm == "pm" and hr < 12:
-                    hr += 12
-                elif ampm == "am" and hr == 12:
-                    hr = 0
-            else:
-                if not (0 <= hr <= 23):
-                    continue
-
-            if not (0 <= mn <= 59):
-                continue
-
-            formatted = f"{hr:02d}:{mn:02d}"
-            if hr < 13:
-                dep_am = formatted
-            else:
-                dep_pm = formatted
-
-    # Trip 1: Morning Commute
     trips.append(ScheduledTrip(
         trip_id="trip_morning_1",
         title="Morning Campus Commute",
@@ -165,14 +208,14 @@ def fallback_rule_parser(user_prompt: str) -> List[ScheduledTrip]:
     ))
 
     # If evening is mentioned
-    if "evening" in lower or "gym" in lower or "jog" in lower or "return" in lower or "pm" in lower:
+    if any(k in lower for k in ["evening", "gym", "jog", "return", "pm"]):
         trips.append(ScheduledTrip(
             trip_id="trip_evening_2",
             title="Evening Activity / Return",
             departure_time=dep_pm,
             origin="PCCOE Campus",
             destination="Durga Devi Tekdi / Home",
-            travel_mode="walking" if ("gym" in lower or "jog" in lower) else mode,
+            travel_mode="walking" if any(k in lower for k in ["gym", "jog"]) else mode,
             vulnerability_group=vuln,
             t_minus_alert_time=compute_t_minus_20(dep_pm)
         ))
@@ -180,15 +223,27 @@ def fallback_rule_parser(user_prompt: str) -> List[ScheduledTrip]:
     return trips
 
 async def parse_user_routine(user_text: str) -> RoutineParseResponse:
-    # Try Ollama first
-    trips = await parse_routine_with_ollama(user_text)
-    parser = "ollama_local"
+    # 1. Try Google Gemini 2.5 Flash first (fastest & smartest)
+    trips = await parse_routine_with_gemini(user_text)
+    parser = "google_gemini_2.5_flash"
+    
+    # 2. Try Ollama local
+    if not trips:
+        trips = await parse_routine_with_ollama(user_text)
+        parser = "ollama_local"
+        
+    # 3. Deterministic rule fallback
     if not trips:
         trips = fallback_rule_parser(user_text)
         parser = "rule_based_fallback"
 
     count = len(trips)
-    msg = f"Successfully parsed {count} scheduled routine trips. T-20 Departure Sentinels armed."
+    parser_labels = {
+        "google_gemini_2.5_flash": "Google Gemini 2.5 Flash (Cloud Neural LLM)",
+        "ollama_local": "Local Ollama qwen2.5:3b (On-Device LLM)",
+        "rule_based_fallback": "Deterministic Temporal Heuristic Engine"
+    }
+    msg = f"Successfully parsed {count} scheduled routine trips via {parser_labels.get(parser)}. T-20 Departure Sentinels armed."
     return RoutineParseResponse(
         raw_input=user_text,
         trips=trips,

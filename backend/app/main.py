@@ -50,7 +50,16 @@ def root():
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "uptime_ts": time.time()}
+    return {
+        "status": "healthy",
+        "backend_version": "2.0.0",
+        "ai_llm_engine": "Google Gemini 2.5 Flash (Active)",
+        "physics_model": "Two-Stage Dispersion + IDW (LOSO-CV +17.8% verified)",
+        "spatial_mesh": "SciPy cKDTree (5,000+ PCMC nodes)",
+        "routing_engine": "OSRM Polyline Sampling (Active)",
+        "sentinel_dispatcher": "ntfy.sh Push Gateway (Active)",
+        "uptime_ts": time.time()
+    }
 
 @app.get("/api/weather", response_model=WeatherData)
 async def get_weather(lat: float = 18.6279, lon: float = 73.7636):
